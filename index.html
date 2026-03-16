@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Amazon Music 数据中心 - 增量更新版</title>
+    <title>Amazon Music 数据中心 - 专辑适配版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -12,17 +12,16 @@
     <div id="loginOverlay" class="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center">
         <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-sm mx-4 text-center">
             <h2 class="text-2xl font-bold mb-6 text-indigo-400">身份验证</h2>
-            <input type="password" id="passInput" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-indigo-500" placeholder="请输入访问密码">
+            <input type="password" id="passInput" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-indigo-500" placeholder="请输入密码">
             <button onclick="checkLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-bold transition">进入系统</button>
-            <p id="loginError" class="text-red-500 text-sm mt-4 hidden">⚠️ 密码错误</p>
         </div>
     </div>
 
     <div id="mainContent" class="hidden max-w-6xl mx-auto p-4 md:p-8">
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-700 pb-6 gap-4">
             <div>
-                <h1 class="text-2xl font-black text-indigo-400 tracking-tighter">AMAZON MUSIC INSIGHT</h1>
-                <p id="dataStatus" class="text-slate-500 text-xs mt-1 italic text-center md:text-left">正在同步云端历史数据...</p>
+                <h1 class="text-2xl font-black text-indigo-400 tracking-tighter">DATA INSIGHT</h1>
+                <p id="dataStatus" class="text-slate-500 text-xs mt-1 italic">正在同步云端历史数据...</p>
             </div>
             
             <div id="adminTools" class="hidden flex flex-wrap justify-center gap-2">
@@ -30,26 +29,26 @@
                     1. 导入总流量CSV <input type="file" id="trendFile" class="hidden">
                 </label>
                 <label class="bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded text-[10px] font-bold cursor-pointer transition">
-                    2. 导入单曲详情CSV <input type="file" id="trackFile" class="hidden">
+                    2. 导入专辑/单曲CSV <input type="file" id="trackFile" class="hidden">
                 </label>
                 <button onclick="processAndMerge()" class="bg-white text-black px-3 py-2 rounded text-[10px] font-black hover:bg-indigo-200 transition">
-                    合并历史并生成JSON
+                    合并并生成JSON
                 </button>
             </div>
         </header>
 
-        <div id="dashboard" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
-                <p class="text-slate-400 text-xs uppercase font-bold">累计播放量 (历史+新增)</p>
+                <p class="text-slate-400 text-xs uppercase font-bold">累计总播放量</p>
                 <h2 id="totalStreams" class="text-4xl font-mono mt-2 text-indigo-300">0</h2>
             </div>
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
-                <p class="text-slate-400 text-xs uppercase font-bold">数据覆盖天数</p>
-                <h2 id="totalDays" class="text-4xl font-mono mt-2 text-emerald-400">0</h2>
+                <p class="text-slate-400 text-xs uppercase font-bold">Top 1 热门内容</p>
+                <h2 id="topTrackName" class="text-xl font-bold mt-2 truncate text-emerald-400">--</h2>
             </div>
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
-                <p id="topTrackLabel" class="text-slate-400 text-xs uppercase font-bold">最火歌曲</p>
-                <h2 id="topTrackName" class="text-xl font-bold mt-2 truncate">--</h2>
+                <p class="text-slate-400 text-xs uppercase font-bold">记录天数</p>
+                <h2 id="totalDays" class="text-4xl font-mono mt-2 text-slate-300">0</h2>
             </div>
         </div>
 
@@ -58,165 +57,125 @@
                 <canvas id="mainChart"></canvas>
             </div>
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col">
-                <h3 class="font-bold mb-4 text-emerald-400">当前阶段排名</h3>
-                <div id="trackList" class="space-y-4 overflow-y-auto flex-1 pr-2 text-sm text-slate-300">
-                    等待导入数据...
+                <h3 class="font-bold mb-4 text-emerald-400 uppercase text-xs tracking-widest">排行榜 (Top List)</h3>
+                <div id="trackList" class="space-y-4 overflow-y-auto flex-1 pr-2 text-sm">
+                    等待上传数据...
                 </div>
             </div>
         </div>
 
         <div id="jsonResult" class="hidden mt-8 p-6 bg-black rounded-xl border-2 border-indigo-500">
-            <h3 class="text-indigo-400 font-bold mb-2">✅ 数据已合并！</h3>
-            <p class="text-slate-400 text-xs mb-4">请复制下方完整内容，覆盖 GitHub 中的 data.json 文件：</p>
-            <textarea id="jsonOutput" class="w-full h-48 bg-slate-900 text-green-400 p-4 text-[10px] font-mono rounded border-none focus:ring-1 focus:ring-indigo-500" readonly></textarea>
-            <button onclick="copyJSON()" class="mt-2 bg-indigo-600 px-4 py-2 rounded text-xs">一键复制内容</button>
+            <h3 class="text-indigo-400 font-bold mb-2 text-sm">✅ 数据合并完成</h3>
+            <textarea id="jsonOutput" class="w-full h-48 bg-slate-900 text-green-400 p-4 text-[10px] font-mono rounded" readonly></textarea>
+            <button onclick="copyJSON()" class="mt-4 bg-indigo-600 px-6 py-2 rounded font-bold text-sm">复制并去 GitHub 更新 data.json</button>
         </div>
     </div>
 
     <script>
-        // --- 核心配置 ---
         const PASS_VIEW = "guest123";  
         const PASS_ADMIN = "admin888"; 
         let historyData = { trends: [], tracks: [] };
-        let newTrend = null;
-        let newTracks = null;
-        let myChart = null;
+        let newTrend = null, newTracks = null, myChart = null;
 
-        // 登录逻辑
         function checkLogin() {
             const input = document.getElementById('passInput').value;
-            if (input === PASS_ADMIN) {
-                showApp(true);
-            } else if (input === PASS_VIEW) {
-                showApp(false);
-            } else {
-                document.getElementById('loginError').classList.remove('hidden');
-            }
+            if (input === PASS_ADMIN) showApp(true);
+            else if (input === PASS_VIEW) showApp(false);
+            else alert("密码错误");
         }
 
         async function showApp(isAdmin) {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainContent').classList.remove('hidden');
             if (isAdmin) document.getElementById('adminTools').classList.remove('hidden');
-            
-            // 立即加载云端历史数据
             await fetchHistory();
         }
 
         async function fetchHistory() {
             try {
-                const res = await fetch('data.json?t=' + Date.now()); // 加随机数防止缓存
+                const res = await fetch('data.json?v=' + Date.now());
                 historyData = await res.json();
-                document.getElementById('dataStatus').innerText = "✅ 历史数据已加载";
+                document.getElementById('dataStatus').innerText = "✅ 历史数据同步成功";
                 renderUI(historyData);
             } catch (e) {
-                document.getElementById('dataStatus').innerText = "⚠️ 尚未检测到云端历史数据";
+                document.getElementById('dataStatus').innerText = "💡 尚未检测到历史数据";
             }
         }
 
-        // CSV 解析
+        // 解析总流量
         document.getElementById('trendFile').onchange = (e) => {
             Papa.parse(e.target.files[0], { header: true, dynamicTyping: true, skipEmptyLines: true,
                 complete: (r) => { 
                     newTrend = r.data.map(row => ({
                         date: row.Date || row['Reporting Date'],
-                        streams: row.Streams || row['Daily Streams'] || 0,
-                        listeners: row.Listeners || 0
+                        streams: row.Streams || row['Daily Streams'] || 0
                     })).filter(i => i.date);
-                    alert("1. 总流量导入成功！");
+                    alert("趋势数据已读取");
                 }
             });
         };
 
+        // 解析热门内容 (适配 Album Name)
         document.getElementById('trackFile').onchange = (e) => {
             Papa.parse(e.target.files[0], { header: true, dynamicTyping: true, skipEmptyLines: true,
                 complete: (r) => { 
                     newTracks = r.data.map(row => ({
-                        name: row['Track Name'] || row['Song Title'] || 'Unknown',
-                        streams: row.Streams || row['Total Streams'] || 0
-                    })).filter(i => i.name && i.streams > 0);
-                    alert("2. 歌曲详情导入成功！");
+                        name: row['Album Name'] || row['Track Name'] || row['Song Title'] || 'Unknown',
+                        streams: row.Streams || 0
+                    })).filter(i => i.name !== 'Unknown');
+                    alert("专辑/单曲数据已读取");
                 }
             });
         };
 
-        // 核心合并逻辑：去重更新
         function processAndMerge() {
-            if (!newTrend || !newTracks) return alert("请同时上传两个 CSV 文件！");
-
-            // 合并趋势数据：如果日期相同，用新的覆盖旧的；如果日期没有，则添加
-            let combinedTrends = [...historyData.trends];
+            if (!newTrend || !newTracks) return alert("请先上传两个文件");
+            let combinedTrends = [...(historyData.trends || [])];
             newTrend.forEach(newItem => {
-                const idx = combinedTrends.findIndex(oldItem => oldItem.date === newItem.date);
-                if (idx > -1) {
-                    combinedTrends[idx] = newItem; // 更新
-                } else {
-                    combinedTrends.push(newItem); // 追加
-                }
+                const idx = combinedTrends.findIndex(old => old.date === newItem.date);
+                if (idx > -1) combinedTrends[idx] = newItem;
+                else combinedTrends.push(newItem);
             });
-
-            // 排序
             combinedTrends.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-            const finalData = {
-                trends: combinedTrends,
-                tracks: newTracks // 歌曲详情通常显示最新的，所以直接覆盖
-            };
-
-            // 渲染预览
-            renderUI(finalData);
-
-            // 输出 JSON
+            const final = { trends: combinedTrends, tracks: newTracks };
+            renderUI(final);
             document.getElementById('jsonResult').classList.remove('hidden');
-            document.getElementById('jsonOutput').value = JSON.stringify(finalData, null, 2);
+            document.getElementById('jsonOutput').value = JSON.stringify(final, null, 2);
         }
 
         function renderUI(data) {
             if (!data.trends || data.trends.length === 0) return;
-
-            // 统计
-            const total = data.trends.reduce((sum, item) => sum + (item.streams || 0), 0);
-            document.getElementById('totalStreams').innerText = total.toLocaleString();
+            document.getElementById('totalStreams').innerText = data.trends.reduce((s,i)=>s+i.streams,0).toLocaleString();
             document.getElementById('totalDays').innerText = data.trends.length;
-
-            // 图表
+            
             const ctx = document.getElementById('mainChart').getContext('2d');
             if (myChart) myChart.destroy();
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.trends.map(t => t.date),
-                    datasets: [{
-                        label: '每日播放量',
-                        data: data.trends.map(t => t.streams),
-                        borderColor: '#818cf8',
-                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 2
-                    }]
+                    labels: data.trends.map(t=>t.date),
+                    datasets: [{ label:'Streams', data:data.trends.map(t=>t.streams), borderColor:'#818cf8', backgroundColor:'rgba(129,140,248,0.1)', fill:true, tension:0.3 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive:true, maintainAspectRatio:false }
             });
 
-            // 列表
             const list = document.getElementById('trackList');
             list.innerHTML = '';
-            const sortedTracks = data.tracks.sort((a,b) => b.streams - a.streams);
-            sortedTracks.forEach((t, i) => {
-                list.innerHTML += `<div class="flex justify-between border-b border-slate-700 pb-2">
+            const sorted = (data.tracks || []).sort((a,b)=>b.streams - a.streams);
+            sorted.forEach((t,i) => {
+                list.innerHTML += `<div class="flex justify-between border-b border-slate-800 pb-2">
                     <span class="truncate pr-2">${i+1}. ${t.name}</span>
                     <span class="text-indigo-400 font-mono">${t.streams.toLocaleString()}</span>
                 </div>`;
             });
-            if(sortedTracks.length > 0) document.getElementById('topTrackName').innerText = sortedTracks[0].name;
+            if(sorted.length > 0) document.getElementById('topTrackName').innerText = sorted[0].name;
         }
 
         function copyJSON() {
             const area = document.getElementById('jsonOutput');
             area.select();
             document.execCommand('copy');
-            alert("已复制到剪贴板！请前往 GitHub 更新 data.json");
+            alert("已复制！请前往 GitHub 粘贴到 data.json 并 Commit");
         }
     </script>
 </body>
