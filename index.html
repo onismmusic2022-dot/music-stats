@@ -1,1 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Amazon Music 综合数据中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 p-4 md:p-8">
 
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-indigo-400">数据中心 <span class="text-slate-500 font-light">v2.0</span></h1>
+            
+            <div id="adminPanel" class="hidden flex flex-wrap gap-3">
+                <label class="cursor-pointer bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-bold transition shadow-lg">
+                    1. 导入总流量CSV
+                    <input type="file" id="trendFile" accept=".csv" class="hidden">
+                </label>
+                <label class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-xs font-bold transition shadow-lg">
+                    2. 导入歌曲详情CSV
+                    <input type="file" id="trackFile" accept=".csv" class="hidden">
+                </label>
+                <button onclick="generateFinalJSON()" class="bg-white text-slate-900 px-4 py-2 rounded-lg text-xs font-black hover:bg-slate-200">
+                    生成合并数据
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase font-bold">总流媒体播放</p>
+                <h2 id="totalStreams" class="text-4xl font-mono mt-2 text-indigo-300">0</h2>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase font-bold">本阶段最火歌曲</p>
+                <h2 id="topTrackName" class="text-xl font-bold mt-2 truncate text-emerald-400">--</h2>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase font-bold">活跃听众 (峰值)</p>
+                <h2 id="peakListeners" class="text-4xl font-mono mt-2">0</h2>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700 h-[450px]">
+                <canvas id="mainChart"></canvas>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col">
+                <h3 class="font-bold mb-4 text-emerald-400">歌曲排行 (Top Tracks)</h3>
+                <div id="trackList" class="space-y-4 overflow-y-auto flex-1 pr-2">
+                    <p class="text-slate-500 text-sm italic">等待数据合并...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="jsonResult" class="hidden mt-8 p-4 bg-black rounded border-2 border-dashed border-indigo-500">
+            <p class="text-indigo-400 text-sm mb-2 font-bold">合并成功！请将下方 JSON 覆盖到仓库 data.json：</p>
+            <textarea id="jsonOutput" class="w-full h-40 bg-slate-900 text-green-400 p-2 text-xs font-mono" readonly></textarea>
+        </div>
+    </div>
+
+    <script>
+        const MY_SECRET_TOKEN = "mydata2024"; // 你的暗号
+        let tempTrend = null;
+        let tempTracks = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('admin') === MY_SECRET_TOKEN) {
+            document.getElementById('adminPanel').classList.remove('hidden');
+        }
+
+        // 初始化加载
+        async function init() {
+            try {
+                const res = await fetch('data.json');
+                const data = await res.json();
+                if (data.trends && data.tracks) render(data);
+            } catch (e) { console.error("Initialize failed"); }
+        }
+
+        function render(data) {
+            // 渲染趋势图
+            const sortedTrends = data.trends.sort((a,b) => new Date(a.date) - new Date(b.date));
+            document.getElementById('totalStreams').innerText = sortedTrends.reduce((a,b)=>a+b.streams, 0).toLocaleString();
+            document.getElementById('peakListeners').innerText = Math.max(...sortedTrends.map(t=>t.listeners || 0)).toLocaleString();
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedTrends.map(t => t.date),
+                    datasets: [{
+                        label: '每日总播放量',
+                        data: sortedTrends.map(t => t.streams),
+                        borderColor: '#818cf8',
+                        fill: true,
+                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 渲染歌曲列表
+            const sortedTracks = data.tracks.sort((a,b) => b.streams - a.streams);
+            const listContainer = document.getElementById('trackList');
+            listContainer.innerHTML = '';
+            
+            sortedTracks.forEach((track, index) => {
+                listContainer.innerHTML += `
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                        <div class="truncate mr-4 text-sm font-medium"><span class="text-slate-500 mr-1">${index+1}.</span> ${track.name}</div>
+                        <div class="text-indigo-400 font-mono text-sm">${track.streams.toLocaleString()}</div>
+                    </div>
+                `;
+            });
+            if(sortedTracks.length > 0) document.getElementById('topTrackName').innerText = sortedTracks[0].name;
+        }
+
+        // 解析总流量 CSV
+        document.getElementById('trendFile').addEventListener('change', function(e) {
+            Papa.parse(e.target.files[0], {
+                header: true, dynamicTyping: true,
+                complete: function(results) {
+                    tempTrend = results.data.map(row => ({
+                        date: row.Date || row['Reporting Date'],
+                        streams: row.Streams || row['Daily Streams'] || 0,
+                        listeners: row.Listeners || row['Daily Listeners'] || 0
+                    })).filter(i => i.date);
+                    alert("总流量数据读取成功！");
+                }
+            });
+        });
+
+        // 解析歌曲详情 CSV
+        document.getElementById('trackFile').addEventListener('change', function(e) {
+            Papa.parse(e.target.files[0], {
+                header: true, dynamicTyping: true,
+                complete: function(results) {
+                    tempTracks = results.data.map(row => ({
+                        name: row['Track Name'] || row['Song Title'] || 'Unknown',
+                        streams: row.Streams || row['Total Streams'] || 0
+                    })).filter(i => i.name && i.streams > 0);
+                    alert("歌曲详情读取成功！");
+                }
+            });
+        });
+
+        // 合并生成
+        function generateFinalJSON() {
+            if (!tempTrend || !tempTracks) {
+                alert("请先上传两个 CSV 文件！");
+                return;
+            }
+            const finalData = { trends: tempTrend, tracks: tempTracks };
+            document.getElementById('jsonResult').classList.remove('hidden');
+            document.getElementById('jsonOutput').value = JSON.stringify(finalData, null, 2);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
