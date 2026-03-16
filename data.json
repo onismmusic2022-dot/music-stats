@@ -1,4 +1,46 @@
 {
-  "trends": [],
-  "tracks": []
+  "trends": [
+    {
+      "date": "03/10/2026",
+      "streams": 0
+    },
+    {
+      "date": "03/11/2026",
+      "streams": 0
+    },
+    {
+      "date": "03/12/2026",
+      "streams": 12
+    },
+    {
+      "date": "03/13/2026",
+      "streams": 77
+    },
+    {
+      "date": "03/14/2026",
+      "streams": 277
+    },
+    {
+      "date": "03/15/2026",
+      "streams": 301
+    },
+    {
+      "date": "03/16/2026",
+      "streams": 21
+    }
+  ],
+  "tracks": [
+    {
+      "name": "shine color",
+      "streams": 333
+    },
+    {
+      "name": "clooor",
+      "streams": 270
+    },
+    {
+      "name": "shine color",
+      "streams": 1
+    }
+  ]
 }
