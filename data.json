@@ -1,10 +1,6 @@
 {
   "trends": [
     {
-      "date": "03/10/2026",
-      "streams": 0
-    },
-    {
       "date": "03/11/2026",
       "streams": 0
     },
@@ -26,21 +22,21 @@
     },
     {
       "date": "03/16/2026",
-      "streams": 21
+      "streams": 764
+    },
+    {
+      "date": "03/17/2026",
+      "streams": 117
     }
   ],
   "tracks": [
     {
-      "name": "shine color",
-      "streams": 340
-    },
-    {
       "name": "clooor",
-      "streams": 288
+      "streams": 716
     },
     {
       "name": "shine color",
-      "streams": 1
+      "streams": 677
     }
   ]
 }
